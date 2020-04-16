@@ -1,0 +1,11 @@
+#!/usr/bin/env xdg-open
+# sudo ln -s /opt/internet-etecsa-login/desktop/internet-etecsa-login.desktop /usr/share/applications/internet-etecsa-login.desktop
+[Desktop Entry]
+Version=1.0
+Name=Internet Login
+Comment=Renueva el cliente DHCP del Router externo de ser necesario y alterna el estado de la conexión a internet (conecta y desconecta)
+Keywords=internet,login,nauta
+Exec=/bin/bash /opt/internet-etecsa-login/bin/login
+Type=Application
+Categories=Internet;Red
+Icon=/opt/internet-etecsa-login/icons/internet-etecsa-login.jpg

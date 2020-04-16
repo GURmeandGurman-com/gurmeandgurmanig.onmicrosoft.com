@@ -1,0 +1,20 @@
+#!/bin/bash
+
+##  Bash settings
+# abort on nonzero exitstatus
+set -o errexit
+# abort on unbound variable
+set -o nounset
+# don't hide errors within pipes
+# set -o pipefail
+# debug
+# set -o xtrace
+##
+
+systemctl stop internet-etecsa-login
+systemctl disable internet-etecsa-login
+sudo rm --verbose '/usr/share/applications/internet-etecsa-login.desktop'
+sudo rm --verbose -r '/opt/internet-etecsa-login' && \
+userdel --force nauta
+echo 'app internet-etecsa-login desintalada'
+

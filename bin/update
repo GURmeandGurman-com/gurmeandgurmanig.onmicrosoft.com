@@ -1,0 +1,99 @@
+#!/bin/bash
+
+##  Bash settings
+# abort on nonzero exitstatus
+set -o errexit
+# abort on unbound variable
+set -o nounset
+##
+
+readonly ACTION='UPDATE'
+readonly BASE_PATH="${BASE_PATH:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}/.."
+# shellcheck disable=1090
+source "${BASE_PATH}/src/util.bash"
+
+cd '/opt/internet-etecsa-login'
+# readonly GIT_PACKAGE_URL="$(jq -r '.repository.url' './package.json' | sed 's/\.git$//' | sed 's/^git+//')/raw/branch/master/package.json"
+GIT_PACKAGE_URL='https://raw.githubusercontent.com/yunielrc/internet-etecsa-login/master/package.json'
+
+if git remote -v | grep --quiet 'gitea.casa.dylgran.com'; then
+  GIT_PACKAGE_URL='https://gitea.casa.dylgran.com/yuniel/internet-etecsa-login/raw/branch/master/package.json'
+fi
+
+readonly UPDATE_TODAY_OK="/tmp/internet-etecsa-login-$(date +%Y%m%d)"
+readonly APP_PORT="$(grep 'PORT=' "${BASE_PATH}/.env" | sed 's/PORT=//')"
+
+add_new_fields_to_user_env_file() {
+  # extrae 2 textos solo con los nombres de variables de cada campo
+  # diff = .env-prod - .env
+  # diff += valores de variables
+  # .env += diff
+  local -r env_prod_file='.env-prod'
+  local -r env_file='.env'
+  local -r text_vname_env_prod=$(sed -e 's/\s*#//' -e 's/=.*//' "$env_prod_file" | sort | uniq)
+  local -r text_vname_env=$(sed -e 's/\s*#//' -e 's/=.*//' "$env_file" | sort | uniq)
+  local -r new_vnames=$(diff --text  <(echo "$text_vname_env_prod") <(echo "$text_vname_env") | grep '^<' | sed -e 's/<\s*//' | tr '\r\n' '|' | sed 's/|$//')
+
+  if [ -n "$new_vnames" ]; then
+    local -r hfdate=$(date +%Y%m%d)
+    local -r header="#FIELDS BELOW ADDED IN UPDATE ${hfdate}"
+    local -r footer="#END ${hfdate}"
+
+    cp "$env_file" "${env_file}.old"
+    echo -e "\n${header}\n$(grep -E "$new_vnames" "$env_prod_file")\n${footer}\n"  >> "$env_file"
+  fi
+}
+
+# si la actualización se ejecutó hoy correctamente se sale
+if [ -f "$UPDATE_TODAY_OK" ]; then
+  echo 'No es necesario actualizar, ya se ha ejecutado hoy correctamente'
+  exit 0
+fi
+
+# si no hay internet se sale
+timeout 2 ping -c 1 8.8.8.8 &> /dev/null || {
+  log "$ACTION" 1 'No hay internet, no se ha podido actualizar'
+  exit 1
+}
+
+# si la versión actual es la más reciente se sale
+readonly cur_version="$(jq -r '.version' './package.json')"
+readonly git_version="$(wget -qO - "$GIT_PACKAGE_URL" | jq -r '.version')"
+
+if [[ "$cur_version" = "$git_version" ]]; then
+  log "$ACTION" 0 "No es necesario actualizar, la versión actual ${cur_version} es la más reciente"
+  touch "$UPDATE_TODAY_OK"
+  exit 0
+fi
+# update git repository
+git reset --hard
+git checkout master
+git pull origin master || {
+  log "$ACTION" 1 'ejecutando $ git pull origin master'
+  exit 1
+}
+git fetch
+git checkout "v${git_version}"
+# add new fields to .env
+add_new_fields_to_user_env_file
+
+npm install --production --unsafe-perm=true || {
+  log "$ACTION" 1 'ejecutando $ npm install --production --unsafe-perm=true'
+  exit 1
+}
+#
+# este archivo se crea para evitar actualizar el mismo día después
+# de una actualización exitosa
+touch "$UPDATE_TODAY_OK"
+# npm update --unsafe-perm=true
+log "$ACTION" 0 "Se ha actualizado de la versión ${cur_version} a ${git_version}"
+# se reinicia el servicio solo si el usario no tiene una sesión abierta
+# FIX: tomar puerto de config
+msg="$(curl --silent --show-error "http://localhost:${APP_PORT}/session-open" 2>&1)"
+if [[ "$msg" != 'true' ]]; then
+  systemctl restart internet-etecsa-login
+  log "$ACTION" 0 'Se ha reiniciado el servicio'
+else
+  log "$ACTION" 0 'No se ha reiniciado el servicio porque hay una sesión abierta'
+  notify-send 'Internet Login' "Software Actualizado a versión ${git_version}. Cuando cierre su sesión ejecute: $ sudo systemctl restart internet-etecsa-login"
+fi

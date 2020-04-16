@@ -1,0 +1,102 @@
+{
+  "name": "internet-etecsa-login",
+  "version": "0.4.42",
+  "description": "Conecta y desconecta el acceso a internet por wifi etecsa con solo tocar un botón",
+  "main": "src/app.js",
+  "engines": {
+    "node": "^13.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yunielrc/internet-etecsa-login.git"
+  },
+  "homepage": "https://github.com/yunielrc/internet-etecsa-login",
+  "bugs": {
+    "url": "https://github.com/yunielrc/internet-etecsa-login/issues"
+  },
+  "scripts": {
+    "start": "node src/app.js",
+    "test": "jest",
+    "run-fake-server": "npx http-server --port 9000 __fakes__/nauta/",
+    "lint": "eslint src/",
+    "commit": "git add . && git-cz",
+    "git-graph": "git log --oneline --graph",
+    "validate": "run-s lint test",
+    "release": "standard-version -a",
+    "prerelease": "git checkout master && git pull origin master && npm i && run-s validate && git-authors-cli && git add .",
+    "postrelease": "run-s release:*",
+    "release:tags": "git push --follow-tags origin master",
+    "release:tags-github": ": || git push --follow-tags github master"
+  },
+  "author": "yuniel",
+  "license": "ISC",
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.js": [
+      "eslint --fix",
+      "git add"
+    ]
+  },
+  "dependencies": {
+    "dotenv": "8.2.0",
+    "express": "4.17.1",
+    "jsonschema": "1.2.5",
+    "puppeteer": "2.1.0",
+    "validator": "12.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.8.7",
+    "@babel/plugin-proposal-class-properties": "7.8.3",
+    "@babel/plugin-proposal-private-methods": "7.8.3",
+    "@babel/preset-env": "7.8.7",
+    "@commitlint/cli": "8.3.5",
+    "@commitlint/config-conventional": "8.3.4",
+    "@types/expect-puppeteer": "4.4.0",
+    "@types/jest": "25.1.3",
+    "@types/jest-environment-puppeteer": "4.3.1",
+    "@types/puppeteer": "2.0.1",
+    "babel-eslint": "10.0.3",
+    "babel-jest": "25.1.0",
+    "commitizen": "4.0.3",
+    "cz-conventional-changelog": "3.1.0",
+    "eslint": "6.8.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.20.0",
+    "eslint-plugin-jest": "23.8.2",
+    "eslint-plugin-jsdoc": "21.0.0",
+    "git-authors-cli": "1.0.19",
+    "http-server": "0.12.1",
+    "husky": "4.2.1",
+    "jest": "25.1.0",
+    "jest-puppeteer": "4.4.0",
+    "lint-staged": "10.0.7",
+    "npm-run-all": "4.1.5",
+    "standard-version": "7.1.0"
+  },
+  "jest": {
+    "collectCoverage": true,
+    "testTimeout": 5000,
+    "verbose": true,
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/nocov/",
+      "/etc/"
+    ]
+  },
+  "babel": {
+    "plugins": [
+      "@babel/plugin-proposal-class-properties",
+      "@babel/plugin-proposal-private-methods"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
+}

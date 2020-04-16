@@ -1,0 +1,14 @@
+{
+  "liveServer.settings.NoBrowser": true,
+  "liveServer.settings.root": "/__fakes__/nauta",
+  "liveServer.settings.port": 9000,
+  "spellright.language": [
+    "English",
+    "Spanish"
+  ],
+  "spellright.documentTypes": [
+    "markdown",
+    "latex",
+    "plaintext"
+  ]
+}

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+readonly BASE_PATH="${BASE_PATH:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"}"
+# shellcheck disable=1090
+source "${BASE_PATH}/src/util.bash"
+
+readonly port="$(grep 'PORT=' "${BASE_PATH}/.env" | sed 's/PORT=//')"
+res="$(curl --silent --show-error "http://localhost:${port}/toggle" 2>&1)"
+
+rmessage="$(echo "$res" | jq -r '.message')"
+rcode="$(echo "$res" | jq -r '.code')"
+
+notify-send 'Internet Login' "$rmessage"
+
+# LOG
+log 'LOGIN' "$rcode" "$rmessage"

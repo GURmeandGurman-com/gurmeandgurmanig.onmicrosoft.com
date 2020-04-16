@@ -1,0 +1,95 @@
+#!/bin/bash
+# wget -qO - http://gitea.casa.dylgran.com/yuniel/internet-etecsa-login/raw/branch/master/bin/install | sudo bash
+# wget ... | sudo env PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true bash # Do not download bundled Chromium during installation step.
+
+##  Bash settings
+# abort on nonzero exitstatus
+set -o errexit
+# abort on unbound variable
+set -o nounset
+# don't hide errors within pipes
+# set -o pipefail
+##
+
+readonly UNAME=nauta # este usuario tiene que ser el mismo del .service
+readonly INSTALL_DIR='/opt/internet-etecsa-login'
+readonly LOG_FILE='/var/log/internet-etecsa-login.log'
+readonly KEY="/home/${UNAME}/.ssh/id_rsa"
+readonly PUB_KEY_TMP_FILE="/tmp/id_rsa.pub"
+
+apt update -y
+apt install -y git curl jq
+# download
+REPO='https://github.com/yunielrc/internet-etecsa-login.git'
+
+if [ -f '.env' ] && grep --quiet '^\s*REPO=' '.env'; then
+  REPO="$(grep 'REPO=' '.env' | sed 's/REPO=//')"
+fi
+cd /opt/
+echo "> Cloning from ${REPO}"
+git clone "$REPO"
+cd "$INSTALL_DIR"
+readonly last_version="v$(jq -r '.version' './package.json')"
+git fetch
+git checkout "$last_version"
+
+# install dependencies
+curl -sL 'https://deb.nodesource.com/setup_13.x' | sudo -E bash -
+apt install -y nodejs build-essential
+npm install npm@latest -g --unsafe-perm=true
+npm install --production --unsafe-perm=true
+# configure
+ln --verbose -s "${INSTALL_DIR}/service/internet-etecsa-login.service" '/etc/systemd/system/internet-etecsa-login.service'
+ln --verbose -s "${INSTALL_DIR}/desktop/internet-etecsa-login.desktop" '/usr/share/applications/internet-etecsa-login.desktop'
+useradd --create-home --shell /bin/bash "$UNAME" || :
+cp --verbose '.env-prod' '.env'
+touch "$LOG_FILE"
+chown "${UNAME}:${UNAME}" "$LOG_FILE"
+chmod 666 "$LOG_FILE"
+
+# setup update script in crontab
+readonly tmpcron='/tmp/tmpcron'
+crontab -l > "$tmpcron" || :
+echo '*/15 10-16 * * 2  /bin/bash /opt/internet-etecsa-login/bin/update' >> "$tmpcron"
+crontab "$tmpcron"
+rm "$tmpcron"
+
+# end
+
+# setup ssh keys
+if [ ! -f "${KEY}.pub" ]; then
+  echo '>generando claves ssh'
+  sudo -u "$UNAME" ssh-keygen -t rsa -N '' -f "$KEY"
+  cp -v "${KEY}.pub" "$PUB_KEY_TMP_FILE"
+fi
+
+cat <<EOF
+
+-------------------------------------------------------------------------------
+>1: Edite al archivo .env y defina las credenciales de su cuenta nauta:
+$ sudo nano ${INSTALL_DIR}/.env
+
+>2: Proteja el archivo .env después de editarlo
+$ sudo chown ${UNAME}:${UNAME} ${INSTALL_DIR}/.env
+$ sudo chmod 444 ${INSTALL_DIR}/.env
+
+>3: Agrege la clave pública al router AirOS
+clave: ${PUB_KEY_TMP_FILE}
+
+>4: Después de haber completado los pasos 1,2 y 3 Instale e inicie el servicio
+$ sudo systemctl enable internet-etecsa-login --now
+
+>5: Ejecute la app 'Internet Login' para conectarse y desconectarse a internet,
+>Asigne una tecla al comando 'gtk-launch internet-etecsa-login' para conectarse
+>y desconectarse, pruebe asignarle 'F9'.
+
+>6: Puede ver el log de la applicación:
+$ tail -f ${LOG_FILE}
+
+>7: Se creó una entrada en el cron del usuario root para actualizar la app
+>puede modificarla:
+$ sudo crontab -e
+-------------------------------------------------------------------------------
+EOF
+
+
